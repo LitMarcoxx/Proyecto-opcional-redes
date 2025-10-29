@@ -1,0 +1,435 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # Nombre único del ConfigMap dentro del namespace.
+  name: router-nft
+  namespace: publico
+data:
+  # Sección donde pones pares clave→valor (sólo texto).
+  # Cada clave se puede montar como archivo dentro del contenedor.
+  # El | indica “bloque multilínea”
+  # Kubernetes no interpreta esto; sólo lo guarda tal cual.
+  # Al montarlo en el contenedor, el archivo tendrá exactamente estas líneas.
+  rules.nft: |
+    table ip nat {
+      chain PREROUTING {
+        type nat hook prerouting priority -100;
+        policy accept;
+
+        # Redirigir puerto 80 → apache (IP del Service)
+        tcp dport 80 dnat to {{ .Values.apache.clusterIP }}:80
+        
+        # Redirigir puerto 8080 → nginx1 (IP del Service)
+        tcp dport 8080 dnat to {{ .Values.nginx.clusterIPnginx1 }}:80
+
+        # Redirigir puerto 8081 → nginx2 (IP del Service)
+        tcp dport 8081 dnat to {{ .Values.nginx.clusterIPnginx2 }}:80
+
+        # SIP 5060
+        tcp dport 5060 dnat to {{ .Values.freeSWITCH.clusterIP }}:5060
+        udp dport 5060 dnat to {{ .Values.freeSWITCH.clusterIP }}:5060
+
+        # SIP 5070
+        tcp dport 5070 dnat to {{ .Values.freeSWITCH.clusterIP }}:5070
+        udp dport 5070 dnat to {{ .Values.freeSWITCH.clusterIP }}:5070
+
+        # SIP 5080
+        tcp dport 5080 dnat to {{ .Values.freeSWITCH.clusterIP }}:5080
+        udp dport 5080 dnat to {{ .Values.freeSWITCH.clusterIP }}:5080
+
+        # RTP - 40 Puertos
+        # RTP (UDP 20000–20040)
+        udp dport 20000 dnat to {{ .Values.freeSWITCH.clusterIP }}:20000
+        udp dport 20001 dnat to {{ .Values.freeSWITCH.clusterIP }}:20001
+        udp dport 20002 dnat to {{ .Values.freeSWITCH.clusterIP }}:20002
+        udp dport 20003 dnat to {{ .Values.freeSWITCH.clusterIP }}:20003
+        udp dport 20004 dnat to {{ .Values.freeSWITCH.clusterIP }}:20004
+        udp dport 20005 dnat to {{ .Values.freeSWITCH.clusterIP }}:20005
+        udp dport 20006 dnat to {{ .Values.freeSWITCH.clusterIP }}:20006
+        udp dport 20007 dnat to {{ .Values.freeSWITCH.clusterIP }}:20007
+        udp dport 20008 dnat to {{ .Values.freeSWITCH.clusterIP }}:20008
+        udp dport 20009 dnat to {{ .Values.freeSWITCH.clusterIP }}:20009
+        udp dport 20010 dnat to {{ .Values.freeSWITCH.clusterIP }}:20010
+        udp dport 20011 dnat to {{ .Values.freeSWITCH.clusterIP }}:20011
+        udp dport 20012 dnat to {{ .Values.freeSWITCH.clusterIP }}:20012
+        udp dport 20013 dnat to {{ .Values.freeSWITCH.clusterIP }}:20013
+        udp dport 20014 dnat to {{ .Values.freeSWITCH.clusterIP }}:20014
+        udp dport 20015 dnat to {{ .Values.freeSWITCH.clusterIP }}:20015
+        udp dport 20016 dnat to {{ .Values.freeSWITCH.clusterIP }}:20016
+        udp dport 20017 dnat to {{ .Values.freeSWITCH.clusterIP }}:20017
+        udp dport 20018 dnat to {{ .Values.freeSWITCH.clusterIP }}:20018
+        udp dport 20019 dnat to {{ .Values.freeSWITCH.clusterIP }}:20019
+        udp dport 20020 dnat to {{ .Values.freeSWITCH.clusterIP }}:20020
+        udp dport 20021 dnat to {{ .Values.freeSWITCH.clusterIP }}:20021
+        udp dport 20022 dnat to {{ .Values.freeSWITCH.clusterIP }}:20022
+        udp dport 20023 dnat to {{ .Values.freeSWITCH.clusterIP }}:20023
+        udp dport 20024 dnat to {{ .Values.freeSWITCH.clusterIP }}:20024
+        udp dport 20025 dnat to {{ .Values.freeSWITCH.clusterIP }}:20025
+        udp dport 20026 dnat to {{ .Values.freeSWITCH.clusterIP }}:20026
+        udp dport 20027 dnat to {{ .Values.freeSWITCH.clusterIP }}:20027
+        udp dport 20028 dnat to {{ .Values.freeSWITCH.clusterIP }}:20028
+        udp dport 20029 dnat to {{ .Values.freeSWITCH.clusterIP }}:20029
+        udp dport 20030 dnat to {{ .Values.freeSWITCH.clusterIP }}:20030
+        udp dport 20031 dnat to {{ .Values.freeSWITCH.clusterIP }}:20031
+        udp dport 20032 dnat to {{ .Values.freeSWITCH.clusterIP }}:20032
+        udp dport 20033 dnat to {{ .Values.freeSWITCH.clusterIP }}:20033
+        udp dport 20034 dnat to {{ .Values.freeSWITCH.clusterIP }}:20034
+        udp dport 20035 dnat to {{ .Values.freeSWITCH.clusterIP }}:20035
+        udp dport 20036 dnat to {{ .Values.freeSWITCH.clusterIP }}:20036
+        udp dport 20037 dnat to {{ .Values.freeSWITCH.clusterIP }}:20037
+        udp dport 20038 dnat to {{ .Values.freeSWITCH.clusterIP }}:20038
+        udp dport 20039 dnat to {{ .Values.freeSWITCH.clusterIP }}:20039
+        udp dport 20040 dnat to {{ .Values.freeSWITCH.clusterIP }}:20040
+      }
+
+      chain POSTROUTING {
+        type nat hook postrouting priority 100; policy accept;
+
+        # esto obliga a que el origen se sobrescriba con la IP del router
+        oifname "eth0" masquerade
+      }
+    }
+  init.sh: |
+      #!/bin/sh
+      set -e
+
+      echo "[router] enable ip_forward"
+      echo 1 > /proc/sys/net/ipv4/ip_forward
+
+      echo "[router] apply nft rules"
+      nft -f /config/rules.nft
+
+      echo "[router] start socat to listen on port 80"
+      # socat escucha en 0.0.0.0:80 y reenvía a apache-service:80 (o a donde indiquen las reglas de DNAT)
+      socat TCP4-LISTEN:80,fork TCP4:127.0.0.1:80 &
+
+      echo "[router] running..."
+      tail -f /dev/null
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router-deployment
+  namespace: publico
+  labels:
+    app: router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: router
+  template:
+    metadata:
+      labels:
+        app: router
+    spec:
+      containers:
+      - name: router
+        image: gerardo67/centos-nftables:1.1
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+        - name: nginx1
+          containerPort: 8080
+        - name: nginx2
+          containerPort: 8081
+        # Permisos admin para el contenedor (capabilities del kernel). 
+        securityContext:
+          privileged: true
+        # Monta el volumen llamado cfg (definido más abajo) en la ruta /config dentro del contenedor.
+        # Todo lo que exponga ese volumen aparecerá como archivos en /config.
+        volumeMounts:
+        - name: cfg
+          mountPath: /config
+        # Comando que ejecutará el contenedor al arrancar. (Sin ocupar chmod)
+        command: ["sh","/config/init.sh"]
+      # Lista de volúmenes que podrá montar el Pod/contendor.
+      volumes:
+      # Define un volumen llamado cfg de origen del ConfigMap.
+      # Todo lo que esté en data: del ConfigMap se monta como archivos.
+      - name: cfg
+        configMap:
+          # name: router-nft enlaza este volumen con el ConfigMap que se creó antes.
+          name: router-nft
+          defaultMode: 0555   # hace ejecutables init.sh y rules.nft (lectura y ejecución para todos, sin escritura).
+          # Si no se ponen items, se montan todas las claves como archivos con su mismo nombre.
+          items:
+          - key: init.sh
+            path: init.sh
+          - key: rules.nft
+            path: rules.nft
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: router-svc
+  namespace: publico
+spec:
+  type: NodePort
+  clusterIP: {{ .Values.router.clusterIP }}  # IP fija dentro del clúster
+  selector:
+    app: router
+  ports:
+    # Puerto TCP para Ingress Controller Apache
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: {{ .Values.nodePorts.http }}
+
+    # Puertos TCP para NGINX 1 y 2
+    - name: nginx1
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: {{ .Values.nodePorts.nginx1 }}
+    - name: nginx2
+      protocol: TCP
+      port: 8081
+      targetPort: 8081
+      nodePort: {{ .Values.nodePorts.nginx2 }}
+
+    # Puertos 5060, 5070, 5080 UDP y TCP para la capa SIP
+    - name: sip5060-tcp
+      protocol: TCP
+      port: 5060
+      targetPort: 5060
+      nodePort: {{ .Values.nodePorts.sip5060tcp }}
+
+    - name: sip5060-udp
+      protocol: UDP
+      port: 5060
+      targetPort: 5060
+      nodePort: {{ .Values.nodePorts.sip5060udp }}
+
+    - name: sip5070-tcp
+      protocol: TCP
+      port: 5070
+      targetPort: 5070
+      nodePort: {{ .Values.nodePorts.sip5070tcp }}
+
+    - name: sip5070-udp
+      protocol: UDP
+      port: 5070
+      targetPort: 5070
+      nodePort: {{ .Values.nodePorts.sip5070udp }}
+
+    - name: sip5080-tcp
+      protocol: TCP
+      port: 5080
+      targetPort: 5080
+      nodePort: {{ .Values.nodePorts.sip5080tcp }}
+
+    - name: sip5080-udp
+      protocol: UDP
+      port: 5080
+      targetPort: 5080
+      nodePort: {{ .Values.nodePorts.sip5080udp }}
+
+    # 40 puertos para la capa RTP/RTCP de multimedia streaming  
+    - name: rtp-20000
+      protocol: UDP
+      port: 20000
+      targetPort: 20000
+      nodePort: {{ .Values.nodePorts.rtp20000 }}
+    - name: rtp-20001
+      protocol: UDP
+      port: 20001
+      targetPort: 20001
+      nodePort: {{ .Values.nodePorts.rtp20001 }}
+    - name: rtp-20002
+      protocol: UDP
+      port: 20002
+      targetPort: 20002
+      nodePort: {{ .Values.nodePorts.rtp20002 }}
+    - name: rtp-20003
+      protocol: UDP
+      port: 20003
+      targetPort: 20003
+      nodePort: {{ .Values.nodePorts.rtp20003 }}
+    - name: rtp-20004
+      protocol: UDP
+      port: 20004
+      targetPort: 20004
+      nodePort: {{ .Values.nodePorts.rtp20004 }}
+    - name: rtp-20005
+      protocol: UDP
+      port: 20005
+      targetPort: 20005
+      nodePort: {{ .Values.nodePorts.rtp20005 }}
+    - name: rtp-20006
+      protocol: UDP
+      port: 20006
+      targetPort: 20006
+      nodePort: {{ .Values.nodePorts.rtp20006 }}
+    - name: rtp-20007
+      protocol: UDP
+      port: 20007
+      targetPort: 20007
+      nodePort: {{ .Values.nodePorts.rtp20007 }}
+    - name: rtp-20008
+      protocol: UDP
+      port: 20008
+      targetPort: 20008
+      nodePort: {{ .Values.nodePorts.rtp20008 }}
+    - name: rtp-20009
+      protocol: UDP
+      port: 20009
+      targetPort: 20009
+      nodePort: {{ .Values.nodePorts.rtp20009 }}
+    - name: rtp-20010
+      protocol: UDP
+      port: 20010
+      targetPort: 20010
+      nodePort: {{ .Values.nodePorts.rtp20010 }}
+    - name: rtp-20011
+      protocol: UDP
+      port: 20011
+      targetPort: 20011
+      nodePort: {{ .Values.nodePorts.rtp20011 }}
+    - name: rtp-20012
+      protocol: UDP
+      port: 20012
+      targetPort: 20012
+      nodePort: {{ .Values.nodePorts.rtp20012 }}
+    - name: rtp-20013
+      protocol: UDP
+      port: 20013
+      targetPort: 20013
+      nodePort: {{ .Values.nodePorts.rtp20013 }}
+    - name: rtp-20014
+      protocol: UDP
+      port: 20014
+      targetPort: 20014
+      nodePort: {{ .Values.nodePorts.rtp20014 }}
+    - name: rtp-20015
+      protocol: UDP
+      port: 20015
+      targetPort: 20015
+      nodePort: {{ .Values.nodePorts.rtp20015 }}
+    - name: rtp-20016
+      protocol: UDP
+      port: 20016
+      targetPort: 20016
+      nodePort: {{ .Values.nodePorts.rtp20016 }}
+    - name: rtp-20017
+      protocol: UDP
+      port: 20017
+      targetPort: 20017
+      nodePort: {{ .Values.nodePorts.rtp20017 }}
+    - name: rtp-20018
+      protocol: UDP
+      port: 20018
+      targetPort: 20018
+      nodePort: {{ .Values.nodePorts.rtp20018 }}
+    - name: rtp-20019
+      protocol: UDP
+      port: 20019
+      targetPort: 20019
+      nodePort: {{ .Values.nodePorts.rtp20019 }}
+    - name: rtp-20020
+      protocol: UDP
+      port: 20020
+      targetPort: 20020
+      nodePort: {{ .Values.nodePorts.rtp20020 }}
+    - name: rtp-20021
+      protocol: UDP
+      port: 20021
+      targetPort: 20021
+      nodePort: {{ .Values.nodePorts.rtp20021 }}
+    - name: rtp-20022
+      protocol: UDP
+      port: 20022
+      targetPort: 20022
+      nodePort: {{ .Values.nodePorts.rtp20022 }}
+    - name: rtp-20023
+      protocol: UDP
+      port: 20023
+      targetPort: 20023
+      nodePort: {{ .Values.nodePorts.rtp20023 }}
+    - name: rtp-20024
+      protocol: UDP
+      port: 20024
+      targetPort: 20024
+      nodePort: {{ .Values.nodePorts.rtp20024 }}
+    - name: rtp-20025
+      protocol: UDP
+      port: 20025
+      targetPort: 20025
+      nodePort: {{ .Values.nodePorts.rtp20025 }}
+    - name: rtp-20026
+      protocol: UDP
+      port: 20026
+      targetPort: 20026
+      nodePort: {{ .Values.nodePorts.rtp20026 }}
+    - name: rtp-20027
+      protocol: UDP
+      port: 20027
+      targetPort: 20027
+      nodePort: {{ .Values.nodePorts.rtp20027 }}
+    - name: rtp-20028
+      protocol: UDP
+      port: 20028
+      targetPort: 20028
+      nodePort: {{ .Values.nodePorts.rtp20028 }}
+    - name: rtp-20029
+      protocol: UDP
+      port: 20029
+      targetPort: 20029
+      nodePort: {{ .Values.nodePorts.rtp20029 }}
+    - name: rtp-20030
+      protocol: UDP
+      port: 20030
+      targetPort: 20030
+      nodePort: {{ .Values.nodePorts.rtp20030 }}
+    - name: rtp-20031
+      protocol: UDP
+      port: 20031
+      targetPort: 20031
+      nodePort: {{ .Values.nodePorts.rtp20031 }}
+    - name: rtp-20032
+      protocol: UDP
+      port: 20032
+      targetPort: 20032
+      nodePort: {{ .Values.nodePorts.rtp20032 }}
+    - name: rtp-20033
+      protocol: UDP
+      port: 20033
+      targetPort: 20033
+      nodePort: {{ .Values.nodePorts.rtp20033 }}
+    - name: rtp-20034
+      protocol: UDP
+      port: 20034
+      targetPort: 20034
+      nodePort: {{ .Values.nodePorts.rtp20034 }}
+    - name: rtp-20035
+      protocol: UDP
+      port: 20035
+      targetPort: 20035
+      nodePort: {{ .Values.nodePorts.rtp20035 }}
+    - name: rtp-20036
+      protocol: UDP
+      port: 20036
+      targetPort: 20036
+      nodePort: {{ .Values.nodePorts.rtp20036 }}
+    - name: rtp-20037
+      protocol: UDP
+      port: 20037
+      targetPort: 20037
+      nodePort: {{ .Values.nodePorts.rtp20037 }}
+    - name: rtp-20038
+      protocol: UDP
+      port: 20038
+      targetPort: 20038
+      nodePort: {{ .Values.nodePorts.rtp20038 }}
+    - name: rtp-20039
+      protocol: UDP
+      port: 20039
+      targetPort: 20039
+      nodePort: {{ .Values.nodePorts.rtp20039 }}
+    - name: rtp-20040
+      protocol: UDP
+      port: 20040
+      targetPort: 20040
+      nodePort: {{ .Values.nodePorts.rtp20040 }}

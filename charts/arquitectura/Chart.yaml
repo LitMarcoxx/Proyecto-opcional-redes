@@ -1,0 +1,6 @@
+apiVersion: v2
+name: arquitectura
+description: Chart para crear los namespaces base del proyecto
+version: 0.1.0
+appVersion: "1.0"
+

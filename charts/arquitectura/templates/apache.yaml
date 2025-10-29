@@ -1,0 +1,153 @@
+{{- if .Values.apache.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-config
+  namespace: {{ .Values.publicNamespace }}
+  labels:
+    app.kubernetes.io/name: apache-ingress
+    app.kubernetes.io/component: ingress
+data:
+  httpd.conf: |
+    ServerName 0.0.0.0
+    Listen 80
+
+    # Módulos necesarios
+    LoadModule mpm_event_module modules/mod_mpm_event.so
+    LoadModule authn_core_module modules/mod_authn_core.so
+    LoadModule authz_core_module modules/mod_authz_core.so
+    LoadModule access_compat_module modules/mod_access_compat.so
+    LoadModule alias_module modules/mod_alias.so
+    LoadModule dir_module modules/mod_dir.so
+    LoadModule mime_module modules/mod_mime.so
+    LoadModule log_config_module modules/mod_log_config.so
+    LoadModule unixd_module modules/mod_unixd.so
+    LoadModule headers_module modules/mod_headers.so
+    LoadModule proxy_module modules/mod_proxy.so
+    LoadModule proxy_http_module modules/mod_proxy_http.so
+    LoadModule rewrite_module modules/mod_rewrite.so
+    LoadModule status_module modules/mod_status.so
+
+    User daemon
+    Group daemon
+    ErrorLog /proc/self/fd/2
+    LogLevel warn
+    CustomLog /proc/self/fd/1 combined
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "http"
+    RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
+
+    # Healthcheck y página simple
+    Alias /healthz /usr/local/apache2/htdocs/healthz.txt
+    <Files "healthz.txt">
+      Require all granted
+    </Files>
+
+    DocumentRoot "/usr/local/apache2/htdocs"
+    <Directory "/usr/local/apache2/htdocs">
+      Require all granted
+      Options -Indexes +FollowSymLinks
+      AllowOverride None
+    </Directory>
+    DirectoryIndex index.html
+
+    # --- Reglas de ruteo como Ingress ---
+    RewriteEngine On
+
+    # /Nginx1 → nginx1-svc (en el namespace privado)
+    RewriteRule ^/Nginx1$ http://nginx1-svc.{{ .Values.privateNamespace }}.svc.cluster.local:80/ [P,L]
+    RewriteRule ^/Nginx1/(.*)$ http://nginx1-svc.{{ .Values.privateNamespace }}.svc.cluster.local:80/$1 [P,L]
+    ProxyPassReverse /Nginx1/ http://nginx1-svc.{{ .Values.privateNamespace }}.svc.cluster.local:80/
+
+    # /Nginx2 → nginx2-svc (en el namespace privado)
+    RewriteRule ^/Nginx2$ http://nginx2-svc.{{ .Values.privateNamespace }}.svc.cluster.local:80/ [P,L]
+    RewriteRule ^/Nginx2/(.*)$ http://nginx2-svc.{{ .Values.privateNamespace }}.svc.cluster.local:80/$1 [P,L]
+    ProxyPassReverse /Nginx2/ http://nginx2-svc.{{ .Values.privateNamespace }}.svc.cluster.local:80/
+
+  healthz.txt: |
+    ok
+
+  index.html: |
+    <!doctype html>
+    <html><head><meta charset="utf-8"><title>Apache Ingress</title></head>
+    <body>
+      <h1>Apache Ingress en ejecución</h1>
+      <ul>
+        <li><a href="/healthz">/healthz</a></li>
+        <li>/Nginx1 → NGINX1</li>
+        <li>/Nginx2 → NGINX2</li>
+      </ul>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apache-service
+  namespace: {{ .Values.publicNamespace }}
+  labels:
+    app: apache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: httpd
+        image: httpd:2.4
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: httpd-config
+          mountPath: /usr/local/apache2/conf/httpd.conf
+          subPath: httpd.conf
+        - name: httpd-config
+          mountPath: /usr/local/apache2/htdocs/healthz.txt
+          subPath: healthz.txt
+        - name: httpd-config
+          mountPath: /usr/local/apache2/htdocs/index.html
+          subPath: index.html
+      volumes:
+      - name: httpd-config
+        configMap:
+          name: apache-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache-service
+  namespace: {{ .Values.publicNamespace }}
+spec:
+  selector:
+    app: test
+  type: NodePort
+  clusterIP: {{ .Values.apache.clusterIP }}  # IP fija dentro del clúster
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: http
+    nodePort: {{ .Values.apache.nodePort }}
+{{- end }}

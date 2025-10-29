@@ -1,0 +1,270 @@
+{{- if .Values.freeSWITCH.enabled }}
+{{- $priv := .Values.privateNamespace -}}
+{{- $fs := .Values.freeSWITCH -}}
+{{- $rtpStart := int (default 20000 (index $fs "rtp" "start")) -}}
+{{- $rtpEnd   := int (default 20040 (index $fs "rtp" "end")) -}}
+{{- $rtpEndPlus := int (add $rtpEnd 1) -}}
+{{- $open5070 := (default false (index $fs "sip" "open5070")) -}}
+{{- $image := default "signalwire/freeswitch:1.10-bullseye" $fs.image -}}
+{{- $nodePort5060UDP := int (default 32060 (index $fs "service" "nodePort5060UDP")) -}}
+{{- $nodePort5060TCP := int (default 32061 (index $fs "service" "nodePort5060TCP")) -}}
+{{- $rtpNodeBase     := int (default 32100 (index $fs "service" "rtpNodeBase")) -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freeswitch-conf
+  namespace: {{ $priv }}
+data:
+  switch.conf.xml: |
+    <configuration name="switch.conf" description="Core Configuration">
+      <settings>
+        <param name="rtp-start-port" value="{{ $rtpStart }}"/>
+        <param name="rtp-end-port"   value="{{ $rtpEnd }}"/>
+      </settings>
+    </configuration>
+  vars.xml: |
+    <include>
+      <X-PRE-PROCESS cmd="set" data="domain=$${local_ip_v4}"/>
+      <X-PRE-PROCESS cmd="set" data="external_sip_ip=$${local_ip_v4}"/>
+      <X-PRE-PROCESS cmd="set" data="external_rtp_ip=$${local_ip_v4}"/>
+    </include>
+  freeswitch.xml: |
+    <?xml version="1.0"?>
+    <document type="freeswitch/xml">
+      <section name="configuration" description="Configuration">
+        <X-PRE-PROCESS cmd="include" data="vars.xml"/>
+        <X-PRE-PROCESS cmd="include" data="autoload_configs/*.xml"/>
+      </section>
+      <section name="dialplan" description="Dialplan">
+        <X-PRE-PROCESS cmd="include" data="dialplan/*.xml"/>
+      </section>
+      <section name="directory" description="Directory">
+        <X-PRE-PROCESS cmd="include" data="directory/*.xml"/>
+      </section>
+    </document>
+  modules.conf.xml: |
+    <configuration name="modules.conf" description="Modules">
+      <modules>
+        <load module="mod_commands"/>
+        <load module="mod_dptools"/>
+        <load module="mod_event_socket"/>
+        <load module="mod_sofia"/>
+      </modules>
+    </configuration>
+  event_socket.conf.xml: |
+    <configuration name="event_socket.conf" description="Socket Client">
+      <settings>
+        <param name="listen-ip" value="127.0.0.1"/>
+        <param name="listen-port" value="8021"/>
+        <param name="password" value="ClueCon"/>
+      </settings>
+    </configuration>
+  sofia.conf.xml: |
+    <configuration name="sofia.conf" description="Sofia SIP">
+      <profiles>
+        <X-PRE-PROCESS cmd="include" data="../sip_profiles/*.xml"/>
+      </profiles>
+    </configuration>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freeswitch-profiles
+  namespace: {{ $priv }}
+data:
+  default.xml: |
+    <include>
+      <X-PRE-PROCESS cmd="include" data="internal.xml"/>
+      <X-PRE-PROCESS cmd="include" data="external.xml"/>
+    </include>
+  internal.xml: |
+    <profile name="internal">
+      <aliases><alias name="local"/></aliases>
+      <gateways/>
+      <settings>
+        <param name="debug" value="0"/>
+        <param name="sip-ip" value="$${local_ip_v4}"/>
+        <param name="rtp-ip" value="$${local_ip_v4}"/>
+        <param name="sip-port" value="5060"/>
+        <param name="dialplan" value="XML"/>
+        <param name="context" value="public"/>
+        <param name="auth-calls" value="true"/>
+        <param name="accept-blind-reg" value="true"/>
+        <param name="inbound-codec-prefs" value="OPUS,PCMU,PCMA"/>
+        <param name="outbound-codec-prefs" value="OPUS,PCMU,PCMA"/>
+        <param name="rtp-timer-name" value="soft"/>
+        <param name="rtp-start-port" value="{{ $rtpStart }}"/>
+        <param name="rtp-end-port" value="{{ $rtpEnd }}"/>
+      </settings>
+    </profile>
+  external.xml: |
+    <profile name="external">
+      <gateways/>
+      <settings>
+        <param name="debug" value="0"/>
+        <param name="sip-ip" value="$${local_ip_v4}"/>
+        <param name="rtp-ip" value="$${local_ip_v4}"/>
+        <param name="sip-port" value="5080"/>
+        <param name="dialplan" value="XML"/>
+        <param name="context" value="public"/>
+        <param name="auth-calls" value="false"/>
+        <param name="inbound-codec-prefs" value="OPUS,PCMU,PCMA"/>
+        <param name="outbound-codec-prefs" value="OPUS,PCMU,PCMA"/>
+        <param name="rtp-timer-name" value="soft"/>
+        <param name="rtp-start-port" value="{{ $rtpStart }}"/>
+        <param name="rtp-end-port" value="{{ $rtpEnd }}"/>
+      </settings>
+    </profile>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freeswitch-users
+  namespace: {{ $priv }}
+data:
+  1000.xml: |
+    <user id="1000">
+      <params><param name="password" value="1234"/></params>
+      <variables>
+        <variable name="effective_caller_id_name" value="Extension 1000"/>
+        <variable name="effective_caller_id_number" value="1000"/>
+        <variable name="user_context" value="public"/>
+      </variables>
+    </user>
+  1001.xml: |
+    <user id="1001">
+      <params><param name="password" value="1234"/></params>
+      <variables>
+        <variable name="effective_caller_id_name" value="Extension 1001"/>
+        <variable name="effective_caller_id_number" value="1001"/>
+        <variable name="user_context" value="public"/>
+      </variables>
+    </user>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freeswitch-directory
+  namespace: {{ $priv }}
+data:
+  default.xml: |
+    <include>
+      <domain name="$${domain}">
+        <params>
+          <param name="dial-string" value="{sip_invite_domain=$${domain},presence_id=${dialed_user}@${dialed_domain}}{origination_caller_id_name=${effective_caller_id_name},origination_caller_id_number=${effective_caller_id_number}}${sofia_contact(${dialed_user}@${dialed_domain})}"/>
+        </params>
+        <variables>
+          <variable name="record_stereo" value="true"/>
+          <variable name="transfer_fallback_extension" value="operator"/>
+        </variables>
+        <groups>
+          <group name="default">
+            <users>
+              <X-PRE-PROCESS cmd="include" data="default/*.xml"/>
+            </users>
+          </group>
+        </groups>
+      </domain>
+    </include>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freeswitch-dialplan
+  namespace: {{ $priv }}
+data:
+  default.xml: |
+    <include>
+      <extension name="local_call">
+        <condition field="destination_number" expression="^(10[0-9][0-9])$">
+          <action application="bridge" data="user/$1"/>
+        </condition>
+      </extension>
+    </include>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freeswitch
+  namespace: {{ $priv }}
+  labels: { app: freeswitch }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: freeswitch } }
+  template:
+    metadata:
+      labels: { app: freeswitch }
+    spec:
+      containers:
+      - name: freeswitch
+        image: {{ $image }}
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh","-lc","/usr/bin/freeswitch -nc -nf"]
+        ports:
+        - { name: sip5060-udp, containerPort: 5060, protocol: UDP }
+        - { name: sip5060-tcp, containerPort: 5060, protocol: TCP }
+        - { name: sip5080-udp, containerPort: 5080, protocol: UDP }
+        - { name: sip5080-tcp, containerPort: 5080, protocol: TCP }
+        - { name: rtp-start, containerPort: {{ $rtpStart }}, protocol: UDP }
+        - { name: rtp-end,   containerPort: {{ $rtpEnd }},   protocol: UDP }
+        volumeMounts:
+        - { name: fs-conf,       mountPath: /etc/freeswitch/autoload_configs/switch.conf.xml,               subPath: switch.conf.xml }
+        - { name: fs-conf,       mountPath: /etc/freeswitch/vars.xml,                                       subPath: vars.xml }
+        - { name: fs-conf,       mountPath: /etc/freeswitch/freeswitch.xml,                                 subPath: freeswitch.xml }
+        - { name: fs-conf,       mountPath: /etc/freeswitch/autoload_configs/modules.conf.xml,              subPath: modules.conf.xml }
+        - { name: fs-conf,       mountPath: /etc/freeswitch/autoload_configs/event_socket.conf.xml,         subPath: event_socket.conf.xml }
+        - { name: fs-conf,       mountPath: /etc/freeswitch/autoload_configs/sofia.conf.xml,                subPath: sofia.conf.xml }
+        - { name: fs-profiles,   mountPath: /etc/freeswitch/sip_profiles/internal.xml,                      subPath: internal.xml }
+        - { name: fs-profiles,   mountPath: /etc/freeswitch/sip_profiles/external.xml,                      subPath: external.xml }
+        - { name: fs-profiles,   mountPath: /etc/freeswitch/sip_profiles/default.xml,                       subPath: default.xml }
+        - { name: fs-users,      mountPath: /etc/freeswitch/directory/default/1000.xml,                     subPath: 1000.xml }
+        - { name: fs-users,      mountPath: /etc/freeswitch/directory/default/1001.xml,                     subPath: 1001.xml }
+        - { name: fs-directory,  mountPath: /etc/freeswitch/directory/default.xml,                          subPath: default.xml }
+        - { name: fs-dialplan,   mountPath: /etc/freeswitch/dialplan/default.xml,                           subPath: default.xml }
+      volumes:
+      - name: fs-conf
+        configMap:
+          name: freeswitch-conf
+      - name: fs-profiles
+        configMap:
+          name: freeswitch-profiles
+      - name: fs-users
+        configMap:
+          name: freeswitch-users
+      - name: fs-directory
+        configMap:
+          name: freeswitch-directory
+      - name: fs-dialplan
+        configMap:
+          name: freeswitch-dialplan
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: freeswitch
+  namespace: {{ $priv }}
+spec:
+  type: NodePort
+  selector: { app: freeswitch }
+  ports:
+  - name: sip5060-udp
+    protocol: UDP
+    port: 5060
+    targetPort: 5060
+    nodePort: {{ $nodePort5060UDP }}
+  - name: sip5060-tcp
+    protocol: TCP
+    port: 5060
+    targetPort: 5060
+    nodePort: {{ $nodePort5060TCP }}
+
+  {{- $offset := int (sub $rtpStart 0) -}}
+  {{- range $p := untilStep $rtpStart $rtpEndPlus 1 }}
+  - name: rtp-{{ $p }}
+    protocol: UDP
+    port: {{ $p }}
+    targetPort: {{ $p }}
+    nodePort: {{ add $rtpNodeBase (sub $p $rtpStart) }}
+  {{- end }}
+{{- end }}

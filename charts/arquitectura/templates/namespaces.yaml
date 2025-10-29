@@ -1,0 +1,8 @@
+# Es tipo un bucle que va a agarrando los valores del archivo values.yaml
+{{- range .Values.namespaces }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ . }}
+---
+{{- end }}

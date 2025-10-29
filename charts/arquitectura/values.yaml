@@ -1,0 +1,114 @@
+namespaces:
+  - publico
+  - privado
+
+publicNamespace: publico
+privateNamespace: privado
+
+router:
+  clusterIP: 10.105.237.100
+
+apache:
+  clusterIP: 10.105.237.101
+  enabled: true     
+  nodePort: 30080   
+
+nginx:
+  enabled: true
+  exposeNodePorts: false
+
+  nginx1:
+    serviceName: nginx1-svc
+    image: nginx:1.25-alpine
+    replicas: 1
+    port: 80
+    service:
+      clusterIP: 10.105.237.110 
+    nodePort: 30081             
+    response: "Hola NGINX1"
+
+  nginx2:
+    serviceName: nginx2-svc
+    image: nginx:1.25-alpine
+    replicas: 1
+    port: 80
+    service:
+      clusterIP: 10.105.237.120 
+    nodePort: 30082             
+    response: "Hola NGINX2"
+
+#nuevo
+freeSWITCH:
+  clusterIP: 10.105.237.130
+  enabled: true # Activar o desactivar FreeSWITCH
+  image: "vetalca/freeswitch-alpine:1.10.10-sounds" # Imagen de contenedor para usar freeswitch
+  sip:
+    open5070: false # Si es true, abre el puerto 5070 además del 5060
+  rtp: #Define el rango RTP (UDP)
+    start: 20000
+    end: 20040
+  service:
+    type: ClusterIP
+    clusterIP: 10.105.237.130
+  nat:
+    mode: "auto-nat"
+    externalSipIp: ""
+    externalRtpIp: ""
+
+# Puertos del router, que se pueden acceder desde el nodo (nuestra pc, por ejemplo desde el navegador)
+# Con localhost:30081 redirige al ingress controller de apache que ya esta montado.
+# Todas las reglas de direccionamiento estan en el ConfigMap de router. En rules.nft
+# FALTA: los nginx, y lo de FreeSWITCH (los puertos que dicen sip y rtp).
+nodePorts:
+  http: 30081
+  nginx1: 30082
+  nginx2: 30083
+
+  sip5060tcp: 30084
+  sip5060udp: 30085
+  sip5070tcp: 30086
+  sip5070udp: 30087
+  sip5080tcp: 30088
+  sip5080udp: 30089
+
+  rtp20000: 30090
+  rtp20001: 30091
+  rtp20002: 30092
+  rtp20003: 30093
+  rtp20004: 30094
+  rtp20005: 30095
+  rtp20006: 30096
+  rtp20007: 30097
+  rtp20008: 30098
+  rtp20009: 30099
+  rtp20010: 30100
+  rtp20011: 30101
+  rtp20012: 30102
+  rtp20013: 30103
+  rtp20014: 30104
+  rtp20015: 30105
+  rtp20016: 30106
+  rtp20017: 30107
+  rtp20018: 30108
+  rtp20019: 30109
+  rtp20020: 30110
+  rtp20021: 30111
+  rtp20022: 30112
+  rtp20023: 30113
+  rtp20024: 30114
+  rtp20025: 30115
+  rtp20026: 30116
+  rtp20027: 30117
+  rtp20028: 30118
+  rtp20029: 30119
+  rtp20030: 30120
+  rtp20031: 30121
+  rtp20032: 30122
+  rtp20033: 30123
+  rtp20034: 30124
+  rtp20035: 30125
+  rtp20036: 30126
+  rtp20037: 30127
+  rtp20038: 30128
+  rtp20039: 30129
+  rtp20040: 30130
